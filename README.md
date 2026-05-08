@@ -12,7 +12,8 @@ PyTorch Implementation of
 ## News
  - **_10.2025_**: We are thrilled to present the extended version of [Dinomaly](https://github.com/guojiajeremy/Dinomaly), now evolved into [**Dinomaly2**](https://arxiv.org/abs/2510.17611)!!! We introduce the first **unified framework** for **universal** UAD that seamlessly handles diverse _data modalities_ (2D, multi-view, RGB-3D, RGB-IR), _task settings_ (single-class, multi-class, inference-unified multi-class, few-shot) and application domains (industrial, biological, outdoor). Of course, Dinomaly2 achieves unprecedented UAD performance. Check it out😎
  - **_05.2026_**: **Preview Code released**🎉
- - **_05.2026_**: We now support Real-IAD_Variety (160 classes) and ADNet (380 classes). How great is that!🚀
+ - **_05.2026_**: We now support super-large multi-class datasets: [Real-IAD_Variety](https://huggingface.co/datasets/Real-IAD/Real-IAD_Variety/tree/main) (160 classes)
+and [ADNet](https://huggingface.co/datasets/linglingling009/ADNet) (380 classes). How great is that!🚀
 
 ![img.png](im/large_dataset.png)
 
@@ -195,7 +196,7 @@ python dinomaly_fewshot.py --data_path ../mvtec_anomaly_detection --image_size 4
 
 
 ## Some note
-We set the learning rate of first layer of NB to a smaller value for training stablility.
+We now set the learning rate of first layer of NB to a smaller value for training stablility.
 
 If you encounter training instability or Loss=NaN during training on other datasets (very rare in common datasets), simply use a smaller eps (1e-8 by default) in the LinearAttention2 module:
 
