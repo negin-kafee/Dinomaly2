@@ -173,20 +173,20 @@ python dinomaly_2D.py --data_path ../Uni-Medical --image_size 280 --crop_size 28
 
 Multi-View MUAD
 ```
-python dinomaly_realiad_uni.py --data_path ../Real-IAD --image_size 448 --crop_size 392 --save_name dinomaly2_realiad
-python dinomaly_realiad_uni.py --data_path ../Real-IAD_Variety --image_size 280 --crop_size 280 --save_name dinomaly2_realiadvar
-python dinomaly_realiad_uni.py --data_path ../MANTATiny --image_size 280 --crop_size 280 --save_name dinomaly2_manta
+python dinomaly_multiview.py --data_path ../Real-IAD --image_size 448 --crop_size 392 --save_name dinomaly2_realiad
+python dinomaly_multiview.py --data_path ../Real-IAD_Variety --image_size 280 --crop_size 280 --save_name dinomaly2_realiadvar
+python dinomaly_multiview.py --data_path ../MANTATiny --image_size 280 --crop_size 280 --save_name dinomaly2_manta
 ```
 
 RGB-3D MUAD
 ```
-python dinomaly_realiad_uni.py --data_path ../mvtec_3d --image_size 448 --crop_size 392 --save_name dinomaly2_mvtec3d
+python dinomaly_mvtec3d.py --data_path ../mvtec_3d --image_size 448 --crop_size 392 --save_name dinomaly2_mvtec3d
 ```
 
 
 RGB-IR MUAD
 ```
-python dinomaly_realiad_uni.py --data_path ../MulSen_AD --image_size 448 --crop_size 392 --save_name dinomaly2_mulsen
+python dinomaly_mulsen.py --data_path ../MulSen_AD --image_size 448 --crop_size 392 --save_name dinomaly2_mulsen
 ```
 
 Fewshot MUAD
