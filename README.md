@@ -196,6 +196,8 @@ python dinomaly_fewshot.py --data_path ../mvtec_anomaly_detection --image_size 4
 
 
 ## Some note
+
+#### A. Training Stability
 We now set the learning rate of first layer of NB to a smaller value for training stablility.
 
 If you encounter training instability or Loss=NaN during training on other datasets (very rare in common datasets), simply use a smaller eps (1e-8 by default) in the LinearAttention2 module:
@@ -203,6 +205,24 @@ If you encounter training instability or Loss=NaN during training on other datas
 `        z = 1.0 / (torch.einsum('...sd,...d->...s', q, k.sum(dim=-2)) + self.eps)
 `
 
+#### B. Using other backbones, e.g., DINOv3
+
+The following lines in `./models/uad/Dinomaly` is for DINOv3.
+```
+  if self.use_get_intermediate:
+      with torch.no_grad():
+          en_list = self.encoder._get_intermediate_layers_not_chunked(x, self.target_layers)
+```
+
+Just set `use_get_intermediate=True` in the main code if the encoder is DINOv3.
+
+For different backbone (maybe you want to use newer models), the image normalization may be different.
+For example, for TIPS (ICLR 2025), the normalize should be:
+
+`    data_transform, gt_transform = get_data_transforms(image_size, crop_size,
+                                                       mean_train=(0., 0., 0.),
+                                                       std_train=(1., 1., 1.))
+`
 ## Acknowledgment
 Great thanks to ADer, adeval, anomalib, and many other repositories (if I missed)
 
