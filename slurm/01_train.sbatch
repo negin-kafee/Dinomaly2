@@ -39,6 +39,7 @@ torchrun --standalone --nnodes=1 --nproc_per_node="${NGPU}" \
     --batch_size "${BATCH_SIZE}" \
     --num_workers "${NUM_WORKERS}" \
     --ckpt_interval "${CKPT_INTERVAL}" \
+    --slice_cache "${SLICE_CACHE}" \
     --wandb_project "${WANDB_PROJECT}" \
     --wandb_entity "${WANDB_ENTITY}"
 

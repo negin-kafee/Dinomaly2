@@ -36,4 +36,7 @@ SAVE_NAME="${SAVE_NAME:-dinomaly2_brain_${DATASET}}"
 SAVE_DIR="${OUT_BASE}/${DATASET}"
 CKPT="${SAVE_DIR}/${SAVE_NAME}/model_final.pth"
 CKPT_LAST="${SAVE_DIR}/${SAVE_NAME}/last.pth"
+# Slice-index cache keyed by the *data folder* so smoke and full runs share it.
+DATA_TAG="$(basename "${DATA_PATH}")"
+SLICE_CACHE="${SLICE_CACHE:-${OUT_BASE}/cache/slice_index_${DATA_TAG}.json}"
 EVAL_SCRIPT="/project/detectanomaly/training/repos/REFLECT/compute_metrics_soumick.py"

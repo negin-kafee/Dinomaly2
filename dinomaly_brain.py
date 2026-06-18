@@ -143,6 +143,9 @@ def main():
                         help='Per-GPU batch size')
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--fg_thresh', type=float, default=0.01)
+    parser.add_argument('--slice_cache', type=str, default='',
+                        help='Path to the slice-index JSON cache (shared across runs '
+                             'on the same dataset). Defaults to a file inside data_path.')
     parser.add_argument('--ckpt_interval', type=int, default=1000)
     parser.add_argument('--log_interval', type=int, default=100)
     # W&B
@@ -171,8 +174,13 @@ def main():
     raw_dir = os.path.join(args.data_path, 'raw')
     if not os.path.isdir(raw_dir):
         raw_dir = args.data_path
-    cache_path = os.path.join(args.data_path,
-                              f'.dinomaly_slice_index_fg{args.fg_thresh}_ax2.json')
+    if args.slice_cache:
+        cache_path = args.slice_cache
+    else:
+        cache_path = os.path.join(args.data_path,
+                                  f'.dinomaly_slice_index_fg{args.fg_thresh}_ax2.json')
+    if rank == 0:
+        os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
     if rank == 0 and not os.path.exists(cache_path):
         build_slice_index(raw_dir, cache_path, args.fg_thresh, slice_axis=2)
     if is_dist():
