@@ -1,0 +1,9 @@
+# Dinomaly2 brain-MRI pipeline artefacts
+outputs/
+slurm/logs/
+backbones/
+__pycache__/
+*.pyc
+.dinomaly_slice_index_*.json
+*.tmp.*
+wandb/
