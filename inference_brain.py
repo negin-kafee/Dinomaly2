@@ -102,13 +102,16 @@ def infer_subject(model, images, device, gaussian, crop_size, save_size, batch_s
 
 @torch.no_grad()
 def compute_norm_bounds(model, calib_data_path, device, gaussian, crop_size,
-                        save_size, batch_size, n_slices, start_q, end_q, seed=1):
+                        save_size, batch_size, n_slices, start_q, end_q, seed=1,
+                        dump_path=None):
     """Paper-style map_normalization bounds from HEALTHY training slices.
 
     Runs the trained model over a random sample of healthy slices, applies the
     exact test-time anomaly pipeline (cal_anomaly_maps + Gaussian + NN resize),
     and returns global quantiles (start=q0.5, end=q0.95 by default) used to
-    rescale test heatmaps into [0, 1].
+    rescale test heatmaps into [0, 1]. If ``dump_path`` is given, the full
+    (subsampled) array of healthy anomaly values is saved there so the
+    normalization quantiles can be re-derived offline without a GPU pass.
     """
     ds = BrainMRINiftiTrainDataset(calib_data_path, crop_size=crop_size)
     rng = np.random.default_rng(seed)
@@ -130,6 +133,9 @@ def compute_norm_bounds(model, calib_data_path, device, gaussian, crop_size,
             vals.append(v[::4])  # spatial subsample to bound memory
             buf = []
     vals = np.concatenate(vals)
+    if dump_path:
+        os.makedirs(os.path.dirname(os.path.abspath(dump_path)), exist_ok=True)
+        np.save(dump_path, vals.astype(np.float32))
     start = float(np.quantile(vals, start_q))
     end = float(np.quantile(vals, end_q))
     if end <= start:
@@ -168,6 +174,11 @@ def main():
                              'across modalities.')
     parser.add_argument('--no_normalize', action='store_true',
                         help='Save raw (unnormalized) anomaly maps.')
+    parser.add_argument('--dump_calib_values', type=str, default='',
+                        help='If set, run the healthy calibration pass and save '
+                             'the full (subsampled) anomaly-value array to this '
+                             '.npy path so normalization quantiles can be swept '
+                             'offline. Runs even with --no_normalize.')
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -186,6 +197,19 @@ def main():
     model.eval()
 
     gaussian = get_gaussian_kernel(kernel_size=5, sigma=4).to(device)
+
+    # ---- optional: dump healthy calibration values for offline quantile sweep ----
+    if args.dump_calib_values and args.calib_data_path:
+        if os.path.exists(args.dump_calib_values):
+            print(f'[calib-dump] reusing existing {args.dump_calib_values}', flush=True)
+        else:
+            print(f'[calib-dump] computing healthy values on {args.calib_slices} slices ...',
+                  flush=True)
+            compute_norm_bounds(
+                model, args.calib_data_path, device, gaussian, args.crop_size,
+                args.save_size, args.batch_size, args.calib_slices,
+                args.norm_start, args.norm_end, dump_path=args.dump_calib_values)
+            print(f'[calib-dump] saved -> {args.dump_calib_values}', flush=True)
 
     # ---- normalization bounds (paper map_normalization on healthy data) ----
     do_norm = (not args.no_normalize) and bool(args.calib_data_path)
