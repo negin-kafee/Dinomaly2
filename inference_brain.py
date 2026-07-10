@@ -16,6 +16,7 @@ evaluation script's own threshold search.
 
 import os
 import argparse
+import json
 import warnings
 from functools import partial
 
@@ -30,7 +31,7 @@ from models.uad import Dinomaly
 from models import vit_encoder
 from models.vision_transformer import Block as VitBlock, Attention, LinearAttention2
 from utils import cal_anomaly_maps, get_gaussian_kernel
-from dataset_brain import BraTSSubjectInferenceDataset
+from dataset_brain import BraTSSubjectInferenceDataset, BrainMRINiftiTrainDataset
 
 warnings.filterwarnings("ignore")
 
@@ -99,6 +100,43 @@ def infer_subject(model, images, device, gaussian, crop_size, save_size, batch_s
     return out
 
 
+@torch.no_grad()
+def compute_norm_bounds(model, calib_data_path, device, gaussian, crop_size,
+                        save_size, batch_size, n_slices, start_q, end_q, seed=1):
+    """Paper-style map_normalization bounds from HEALTHY training slices.
+
+    Runs the trained model over a random sample of healthy slices, applies the
+    exact test-time anomaly pipeline (cal_anomaly_maps + Gaussian + NN resize),
+    and returns global quantiles (start=q0.5, end=q0.95 by default) used to
+    rescale test heatmaps into [0, 1].
+    """
+    ds = BrainMRINiftiTrainDataset(calib_data_path, crop_size=crop_size)
+    rng = np.random.default_rng(seed)
+    n_slices = min(n_slices, len(ds))
+    idxs = rng.choice(len(ds), size=n_slices, replace=False)
+
+    vals = []
+    buf = []
+    for j, idx in enumerate(idxs):
+        img, _ = ds[int(idx)]
+        buf.append(img)
+        if len(buf) == batch_size or j == len(idxs) - 1:
+            batch = torch.stack(buf, dim=0).to(device, non_blocking=True)
+            en, de = model(batch)
+            amap, _ = cal_anomaly_maps(en, de, crop_size)
+            amap = gaussian(amap)
+            amap = F.interpolate(amap, size=save_size, mode='nearest')
+            v = amap[:, 0].float().cpu().numpy().reshape(-1)
+            vals.append(v[::4])  # spatial subsample to bound memory
+            buf = []
+    vals = np.concatenate(vals)
+    start = float(np.quantile(vals, start_q))
+    end = float(np.quantile(vals, end_q))
+    if end <= start:
+        end = start + 1e-6
+    return start, end
+
+
 def main():
     parser = argparse.ArgumentParser(description='Dinomaly2 BraTS inference (raw predictions)')
     parser.add_argument('--brats_root', type=str, required=True)
@@ -118,6 +156,18 @@ def main():
                         help='Also save heatmap/mask .nii.gz per subject')
     parser.add_argument('--mask_percentile', type=float, default=98.0,
                         help='Percentile threshold for the saved binary .nii.gz mask (viz only)')
+    # Paper-style map normalization (healthy-quantile rescaling to [0,1]).
+    parser.add_argument('--calib_data_path', type=str, default='',
+                        help='Healthy training dataset root used to calibrate the '
+                             'normalization bounds. If empty, normalization is skipped.')
+    parser.add_argument('--calib_slices', type=int, default=2000)
+    parser.add_argument('--norm_start', type=float, default=0.5)
+    parser.add_argument('--norm_end', type=float, default=0.95)
+    parser.add_argument('--calib_cache', type=str, default='',
+                        help='JSON path to cache/reuse the (start, end) bounds '
+                             'across modalities.')
+    parser.add_argument('--no_normalize', action='store_true',
+                        help='Save raw (unnormalized) anomaly maps.')
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -137,6 +187,34 @@ def main():
 
     gaussian = get_gaussian_kernel(kernel_size=5, sigma=4).to(device)
 
+    # ---- normalization bounds (paper map_normalization on healthy data) ----
+    do_norm = (not args.no_normalize) and bool(args.calib_data_path)
+    norm_start, norm_end = 0.0, 1.0
+    if do_norm:
+        if args.calib_cache and os.path.exists(args.calib_cache):
+            with open(args.calib_cache) as f:
+                b = json.load(f)
+            norm_start, norm_end = b['start'], b['end']
+            print(f'[norm] loaded bounds from cache: start={norm_start:.5f} end={norm_end:.5f}',
+                  flush=True)
+        else:
+            print(f'[norm] calibrating bounds on {args.calib_slices} healthy slices ...',
+                  flush=True)
+            norm_start, norm_end = compute_norm_bounds(
+                model, args.calib_data_path, device, gaussian, args.crop_size,
+                args.save_size, args.batch_size, args.calib_slices,
+                args.norm_start, args.norm_end)
+            print(f'[norm] bounds: start(q{args.norm_start})={norm_start:.5f} '
+                  f'end(q{args.norm_end})={norm_end:.5f}', flush=True)
+            if args.calib_cache:
+                os.makedirs(os.path.dirname(os.path.abspath(args.calib_cache)), exist_ok=True)
+                with open(args.calib_cache, 'w') as f:
+                    json.dump({'start': norm_start, 'end': norm_end,
+                               'start_q': args.norm_start, 'end_q': args.norm_end,
+                               'n_slices': args.calib_slices}, f)
+    else:
+        print('[norm] normalization disabled; saving raw anomaly maps', flush=True)
+
     dataset = BraTSSubjectInferenceDataset(args.brats_root, args.modality,
                                            crop_size=args.crop_size,
                                            save_size=args.save_size)
@@ -152,6 +230,10 @@ def main():
 
         heatmaps = infer_subject(model, images, device, gaussian,
                                  args.crop_size, args.save_size, args.batch_size)
+
+        if do_norm:
+            heatmaps = (heatmaps - norm_start) / (norm_end - norm_start)
+            heatmaps = np.clip(heatmaps, 0.0, 1.0)
 
         np.savez_compressed(os.path.join(npz_dir, f'{sid}.npz'),
                             anomaly_maps=heatmaps.astype(np.float32),

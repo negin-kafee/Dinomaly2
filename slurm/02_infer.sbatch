@@ -39,6 +39,11 @@ for MOD in ${INFER_MODALITIES}; do
         --save_size 256 \
         --batch_size "${INFER_BATCH_SIZE}" \
         --num_workers 4 \
+        --calib_data_path "${DATA_PATH}" \
+        --calib_slices "${CALIB_SLICES}" \
+        --norm_start "${NORM_START}" \
+        --norm_end "${NORM_END}" \
+        --calib_cache "${SAVE_DIR}/norm_calib.json" \
         --save_nifti
 done
 

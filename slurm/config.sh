@@ -27,6 +27,11 @@ NUM_WORKERS="${NUM_WORKERS:-8}"
 CKPT_INTERVAL="${CKPT_INTERVAL:-1000}"
 INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-32}"
 
+# ---- anomaly-map normalization (paper map_normalization on healthy data) ----
+CALIB_SLICES="${CALIB_SLICES:-2000}"
+NORM_START="${NORM_START:-0.5}"
+NORM_END="${NORM_END:-0.95}"
+
 # ---- W&B ----
 WANDB_PROJECT="${WANDB_PROJECT:-Dinomaly2}"
 WANDB_ENTITY="${WANDB_ENTITY:-negin-kafee2-politecnico-di-milano}"
