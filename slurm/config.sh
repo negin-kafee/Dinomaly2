@@ -27,10 +27,14 @@ NUM_WORKERS="${NUM_WORKERS:-8}"
 CKPT_INTERVAL="${CKPT_INTERVAL:-1000}"
 INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-32}"
 
-# ---- anomaly-map normalization (paper map_normalization on healthy data) ----
+# ---- anomaly-map normalization (healthy-quantile rescaling to [0,1]) ----
+# Selected via offline sweep (tools/sweep_norm.py) on MOOD_IXI_all: higher end
+# quantile avoids saturation from the large zero-background in brain slices.
+# q0.9/q0.9999 gave near-peak per-slice Dice with the optimal eval threshold
+# comfortably inside the grid (not pinned at the ceiling).
 CALIB_SLICES="${CALIB_SLICES:-2000}"
-NORM_START="${NORM_START:-0.5}"
-NORM_END="${NORM_END:-0.95}"
+NORM_START="${NORM_START:-0.9}"
+NORM_END="${NORM_END:-0.9999}"
 
 # ---- W&B ----
 WANDB_PROJECT="${WANDB_PROJECT:-Dinomaly2}"
