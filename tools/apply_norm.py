@@ -23,6 +23,12 @@ def main():
     ap.add_argument('--end_q', type=float, required=True)
     ap.add_argument('--out_json', default='',
                     help='Optional path to record the applied bounds.')
+    ap.add_argument('--ids_file', default='',
+                    help='If set, only subjects whose id is listed here are '
+                         'processed (e.g. the 312 test subjects).')
+    ap.add_argument('--out_dir', default='',
+                    help='If set, write normalized npz here instead of '
+                         'overwriting in place.')
     args = ap.parse_args()
 
     healthy = np.load(args.calib_values)
@@ -34,22 +40,37 @@ def main():
     print(f'applying start_q={args.start_q} end_q={args.end_q} '
           f'-> start={start:.6f} end={end:.6f}', flush=True)
 
+    keep = None
+    if args.ids_file:
+        with open(args.ids_file) as fh:
+            keep = set(l.strip() for l in fh if l.strip())
+    if args.out_dir:
+        os.makedirs(args.out_dir, exist_ok=True)
+
     fs = sorted(glob.glob(os.path.join(args.raw_dir, '*.npz')))
-    for i, f in enumerate(fs):
+    n = 0
+    for f in fs:
+        sid = os.path.basename(f)[:-4]
+        if keep is not None and sid not in keep:
+            continue
         d = np.load(f)
         a = d['anomaly_maps'].astype(np.float32)
         a = np.clip((a - start) / denom, 0.0, 1.0).astype(np.float32)
-        np.savez_compressed(f, anomaly_maps=a,
+        out = os.path.join(args.out_dir, os.path.basename(f)) if args.out_dir else f
+        np.savez_compressed(out, anomaly_maps=a,
                             gt_masks=d['gt_masks'],
                             slice_ids=d['slice_ids'])
-        if (i + 1) % 50 == 0:
-            print(f'  [{i + 1}/{len(fs)}]', flush=True)
-    print(f'normalized {len(fs)} subjects in {args.raw_dir}', flush=True)
+        n += 1
+        if n % 50 == 0:
+            print(f'  [{n}]', flush=True)
+    dest = args.out_dir or args.raw_dir
+    print(f'normalized {n} subjects -> {dest}', flush=True)
 
     if args.out_json:
         with open(args.out_json, 'w') as fh:
             json.dump({'start': start, 'end': end,
-                       'start_q': args.start_q, 'end_q': args.end_q}, fh)
+                       'start_q': args.start_q, 'end_q': args.end_q,
+                       'n_written': n}, fh)
 
 
 if __name__ == '__main__':
