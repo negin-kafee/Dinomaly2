@@ -56,6 +56,12 @@ Val/test split from the shared bank `/project/detectanomaly/training/shared/brat
 subjects** (`312_test_subject_ids.txt`). The same subject split is used for T1 and T2
 (tumor GT is modality-independent).
 
+> **T1 val provenance.** The shared bank's npz carry `t2_input` but **no `t1_input`**, so
+> T1 fits were run against **Dinomaly2's own T1 predictions** on the 24 val subjects
+> (`outputs/<DATASET>/infer_t1/raw_predictions/<val_id>.npz`), not the bank's inputs.
+> This is leak-free (val disjoint from test) and internally valid, but the T1 rows are
+> not scored through the shared bank pipeline.
+
 Per dataset-modality:
 1. **Calibrate** normalization bounds on 2000 random *healthy training* slices
    (`start = quantile(healthy, start_q)`, `end = quantile(healthy, end_q)`), map
